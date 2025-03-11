@@ -119,7 +119,7 @@ class Generation:
 
         return new_population
 
-    def evolve(self, generation_number, mutation_probability=0.5, elitism_ratio=0.1):
+    def evolve(self, generation_number, mutation_probability=0.5):
         print(f"\nПоколение {generation_number}:")
 
         # "Банк" хромосом для хранения всех кандидатов
