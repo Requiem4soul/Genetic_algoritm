@@ -5,10 +5,10 @@ class Chromosome:
     def __init__(self, path, network):
         """
         path: путь хромосомы (список вершин)
-        network: объект сети (для получения начальной и конечной точки)
+        network: объект сети
         """
         self.path = path
-        self.network = network  # Сохраняем объект сети
+        self.network = network
         self.fitness = None
         self.calculate_fitness()
 

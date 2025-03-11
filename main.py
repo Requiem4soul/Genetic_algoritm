@@ -1,5 +1,6 @@
 from algorithm.generation import Generation
 from algorithm.network import Network
+import sys
 
 def main():
     # Параметры алгоритма
@@ -35,17 +36,19 @@ def main():
         # Статистика популяции
         stats = generation.get_population_stats()
         print(f"\nСтатистика по поколению {gen + 1}:")
-        print(f"  Лучший фитнес: {stats['best_fitness']} ({stats['best_percent']} от оптимального)")
-        print(f"  Худший фитнес: {stats['worst_fitness']} ({stats['worst_percent']} от оптимального)")
-        print(f"  Средний фитнес: {stats['average_fitness']} ({stats['average_percent']} от оптимального)")
+        print(f"  Лучшая фитнес функция: {stats['best_fitness']}")
+        print(f"  Худшая фитнес функция: {stats['worst_fitness']}")
+        print(f"  Средняя фитнес функция: {stats['average_fitness']}")
 
-    # Возвращаем лучшее решение
+        # Возвращаем лучшее решение
     best_solution = generation.get_best_chromosome()
 
     # Выводим результат
     print("\nЛучшее решение:")
     print(f"Путь: {best_solution.path}")
-    print(f"Длина: {best_solution.fitness}")
+    fitness_str = "-" if best_solution.fitness >= sys.maxsize else f"{best_solution.fitness}"
+    print(f"Длина: {fitness_str}")
+
 
 if __name__ == "__main__":
     main()

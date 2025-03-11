@@ -106,22 +106,20 @@ class Generation:
             child1, child2, cross_line = parent1.crossover(parent2, random_or_not=True)
             new_population.extend([child1, child2])
 
-            # Выводим информацию о кроссовере
-            print(f"\nРодитель 1: {parent1.path}, фитнес: {parent1.fitness}")
-            print(f"Родитель 2: {parent2.path}, фитнес: {parent2.fitness}")
+            # Функция для форматирования фитнеса
+            def format_fitness(fitness):
+                return "-" if fitness >= sys.maxsize else f"{fitness}"
+
+            # Выводим информацию о кроссовере с форматированным фитнесом
+            print(f"\nРодитель 1: {parent1.path}, фитнес функция: {format_fitness(parent1.fitness)}")
+            print(f"Родитель 2: {parent2.path}, фитнес функция: {format_fitness(parent2.fitness)}")
             print(f"Линия кроссовера: {cross_line}")
-            print(f"Потомок 1: {child1.path}, фитнес: {child1.fitness}")
-            print(f"Потомок 2: {child2.path}, фитнес: {child2.fitness}")
+            print(f"Потомок 1: {child1.path}, фитнес функция: {format_fitness(child1.fitness)}")
+            print(f"Потомок 2: {child2.path}, фитнес функция: {format_fitness(child2.fitness)}")
 
         return new_population
 
     def evolve(self, generation_number, mutation_probability=0.5, elitism_ratio=0.1):
-        """
-        Эволюция популяции: отбор, кроссовер, мутация с добавлением элитизма.
-        :param generation_number: номер текущего поколения
-        :param mutation_probability: вероятность мутации
-        :param elitism_ratio: доля элитных хромосом (например, 0.1 для 10%)
-        """
         print(f"\nПоколение {generation_number}:")
 
         # "Банк" хромосом для хранения всех кандидатов
@@ -130,42 +128,52 @@ class Generation:
         # 1. Сохраняем исходную популяцию (до кроссинговера)
         chromosome_bank.extend(self.population)
 
-        # 2. Выполняем кроссинговер и сохраняем потомков
+        # 2. Выполняем кроссовер и сохраняем потомков
         pairs = self.select_pairs_for_crossover()
         new_population = self.perform_crossover(pairs)
-        chromosome_bank.extend(new_population)  # Добавляем потомков после кроссинговера
+        chromosome_bank.extend(new_population)
 
         # 3. Применяем мутацию с выводом изменений
         print("\nХромосомы после мутации:")
         mutated_population = []
         for chromosome in new_population:
-            old_path = chromosome.path.copy()  # Сохраняем исходный путь
-            old_fitness = chromosome.fitness  # Сохраняем исходный фитнес
-            chromosome.mutation(mutation_probability)  # Применяем мутацию
-            if chromosome.path != old_path:  # Выводим только если путь изменился
+            old_path = chromosome.path.copy()
+            old_fitness = chromosome.fitness
+            chromosome.mutation(mutation_probability)
+            if chromosome.path != old_path:
+                old_fitness_str = "-" if old_fitness >= sys.maxsize else f"{old_fitness}"
+                new_fitness_str = "-" if chromosome.fitness >= sys.maxsize else f"{chromosome.fitness}"
                 print(
-                    f"  Хромосома: {old_path} (фитнес: {old_fitness}) -> {chromosome.path} (фитнес: {chromosome.fitness})")
+                    f"  Хромосома: {old_path} (фитнес функция: {old_fitness_str}) -> {chromosome.path} (фитнес: {new_fitness_str})")
             mutated_population.append(chromosome)
-        chromosome_bank.extend(mutated_population)  # Добавляем хромосомы после мутации
+        chromosome_bank.extend(mutated_population)
 
         # 4. Удаляем дубликаты из банка (по пути)
         unique_bank = []
         seen_paths = set()
-        for chromosome in chromosome_bank:
+        for chromosome in sorted(chromosome_bank, key=lambda x: x.fitness):  # Сортируем сразу
             path_tuple = tuple(chromosome.path)
             if path_tuple not in seen_paths:
                 seen_paths.add(path_tuple)
                 unique_bank.append(chromosome)
-        chromosome_bank = unique_bank
 
-        # 5. Сортируем по фитнесу и обрезаем до population_size
-        chromosome_bank.sort(key=lambda x: x.fitness)
-        self.population = chromosome_bank[:self.population_size]
+        # 5. Заполняем популяцию до population_size лучшими уникальными хромосомами
+        self.population = unique_bank[:self.population_size]
+
+        # Если после удаления дублей осталось меньше хромосом, чем population_size,
+        # добавляем новые уникальные хромосомы из оставшихся в банке
+        if len(self.population) < self.population_size and len(unique_bank) > len(self.population):
+            additional_chromosomes = unique_bank[len(self.population):self.population_size]
+            self.population.extend(additional_chromosomes)
+
+        # Если всё ещё не хватает, можно добавить логику для генерации новых уникальных хромосом,
+        # но пока ограничимся тем, что есть в банке
 
         # Выводим финальную популяцию
         print("\nФинальная популяция после эволюции:")
         for i, chromosome in enumerate(self.population):
-            print(f"  Хромосома {i + 1}: {chromosome.path}, фитнес: {chromosome.fitness}")
+            fitness_str = "-" if chromosome.fitness >= sys.maxsize else f"{chromosome.fitness}"
+            print(f"  Хромосома {i + 1}: {chromosome.path}, фитнес функция: {fitness_str}")
 
 
     def apply_mutations(self, population, mutation_probability):
@@ -198,15 +206,8 @@ class Generation:
 
     def get_population_stats(self):
         """
-        Возвращает статистику популяции в процентах относительно оптимального решения.
+        Возвращает статистику популяции без процентов.
         """
-        if self.optimal_fitness == 0:
-            return {
-                "best_percent": 0,
-                "worst_percent": 0,
-                "average_percent": 0,
-            }
-
         fitness_values = [chromosome.fitness for chromosome in self.population]
         best_fitness = min(fitness_values)
         worst_fitness = max(fitness_values)
@@ -214,23 +215,14 @@ class Generation:
 
         # Функция для форматирования фитнеса
         def format_fitness(fitness):
-            if fitness == sys.maxsize or fitness > sys.maxsize or fitness is float:
+            if fitness >= sys.maxsize:
                 return "-"
             return f"{fitness}"
 
-        # Функция для форматирования процентов
-        def format_percent(fitness):
-            if fitness == sys.maxsize or fitness > sys.maxsize or fitness is float:
-                return "0.00%"
-            return f"{(fitness / self.optimal_fitness) * 100:.2f}%"
-
         return {
             "best_fitness": format_fitness(best_fitness),
-            "best_percent": format_percent(best_fitness),
             "worst_fitness": format_fitness(worst_fitness),
-            "worst_percent": format_percent(worst_fitness),
             "average_fitness": format_fitness(average_fitness),
-            "average_percent": format_percent(average_fitness),
         }
 
     def __repr__(self):
