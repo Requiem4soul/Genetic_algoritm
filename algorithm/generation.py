@@ -95,45 +95,32 @@ class Generation:
 
         return pairs
 
-    def perform_crossover(self, pairs):
-        """
-        Выполняет кроссовер для выбранных пар и возвращает новую популяцию.
-        """
+    def perform_crossover(self, pairs, crossover_callback=None):
         new_population = []
-
-        # Выполняем кроссовер для каждой пары
         for parent1, parent2 in pairs:
             child1, child2, cross_line = parent1.crossover(parent2, random_or_not=True)
             new_population.extend([child1, child2])
+            if crossover_callback:
+                crossover_callback(parent1, parent2, child1, child2, cross_line)
+            else:
+                # Оставляем вывод для случаев, когда callback не передан
+                def format_fitness(fitness):
+                    return "-" if fitness >= sys.maxsize else f"{fitness}"
 
-            # Функция для форматирования фитнеса
-            def format_fitness(fitness):
-                return "-" if fitness >= sys.maxsize else f"{fitness}"
-
-            # Выводим информацию о кроссовере с форматированным фитнесом
-            print(f"\nРодитель 1: {parent1.path}, фитнес функция: {format_fitness(parent1.fitness)}")
-            print(f"Родитель 2: {parent2.path}, фитнес функция: {format_fitness(parent2.fitness)}")
-            print(f"Линия кроссовера: {cross_line}")
-            print(f"Потомок 1: {child1.path}, фитнес функция: {format_fitness(child1.fitness)}")
-            print(f"Потомок 2: {child2.path}, фитнес функция: {format_fitness(child2.fitness)}")
-
+                print(f"\nРодитель 1: {parent1.path}, фитнес: {format_fitness(parent1.fitness)}")
+                print(f"Родитель 2: {parent2.path}, фитнес: {format_fitness(parent2.fitness)}")
+                print(f"Линия кроссовера: {cross_line}")
+                print(f"Потомок 1: {child1.path}, фитнес: {format_fitness(child1.fitness)}")
+                print(f"Потомок 2: {child2.path}, фитнес: {format_fitness(child2.fitness)}")
         return new_population
 
-    def evolve(self, generation_number, mutation_probability=0.5):
+    def evolve(self, generation_number, mutation_probability=0.5, crossover_callback=None, mutation_callback=None):
         print(f"\nПоколение {generation_number}:")
-
-        # "Банк" хромосом для хранения всех кандидатов
         chromosome_bank = []
-
-        # 1. Сохраняем исходную популяцию (до кроссинговера)
         chromosome_bank.extend(self.population)
-
-        # 2. Выполняем кроссовер и сохраняем потомков
         pairs = self.select_pairs_for_crossover()
-        new_population = self.perform_crossover(pairs)
+        new_population = self.perform_crossover(pairs, crossover_callback)
         chromosome_bank.extend(new_population)
-
-        # 3. Применяем мутацию с выводом изменений
         print("\nХромосомы после мутации:")
         mutated_population = []
         for chromosome in new_population:
@@ -141,39 +128,30 @@ class Generation:
             old_fitness = chromosome.fitness
             chromosome.mutation(mutation_probability)
             if chromosome.path != old_path:
-                old_fitness_str = "-" if old_fitness >= sys.maxsize else f"{old_fitness}"
-                new_fitness_str = "-" if chromosome.fitness >= sys.maxsize else f"{chromosome.fitness}"
-                print(
-                    f"  Хромосома: {old_path} (фитнес функция: {old_fitness_str}) -> {chromosome.path} (фитнес: {new_fitness_str})")
+                if mutation_callback:
+                    mutation_callback(old_path, old_fitness, chromosome.path, chromosome.fitness)
+                else:
+                    old_fitness_str = "-" if old_fitness >= sys.maxsize else f"{old_fitness}"
+                    new_fitness_str = "-" if chromosome.fitness >= sys.maxsize else f"{chromosome.fitness}"
+                    print(
+                        f"  Хромосома: {old_path} (фитнес: {old_fitness_str}) -> {chromosome.path} (фитнес: {new_fitness_str})")
             mutated_population.append(chromosome)
         chromosome_bank.extend(mutated_population)
-
-        # 4. Удаляем дубликаты из банка (по пути)
         unique_bank = []
         seen_paths = set()
-        for chromosome in sorted(chromosome_bank, key=lambda x: x.fitness):  # Сортируем сразу
+        for chromosome in sorted(chromosome_bank, key=lambda x: x.fitness):
             path_tuple = tuple(chromosome.path)
             if path_tuple not in seen_paths:
                 seen_paths.add(path_tuple)
                 unique_bank.append(chromosome)
-
-        # 5. Заполняем популяцию до population_size лучшими уникальными хромосомами
         self.population = unique_bank[:self.population_size]
-
-        # Если после удаления дублей осталось меньше хромосом, чем population_size,
-        # добавляем новые уникальные хромосомы из оставшихся в банке
         if len(self.population) < self.population_size and len(unique_bank) > len(self.population):
             additional_chromosomes = unique_bank[len(self.population):self.population_size]
             self.population.extend(additional_chromosomes)
-
-        # Если всё ещё не хватает, можно добавить логику для генерации новых уникальных хромосом,
-        # но пока ограничимся тем, что есть в банке
-
-        # Выводим финальную популяцию
         print("\nФинальная популяция после эволюции:")
         for i, chromosome in enumerate(self.population):
             fitness_str = "-" if chromosome.fitness >= sys.maxsize else f"{chromosome.fitness}"
-            print(f"  Хромосома {i + 1}: {chromosome.path}, фитнес функция: {fitness_str}")
+            print(f"  Хромосома {i + 1}: {chromosome.path}, фитнес: {fitness_str}")
 
 
     def apply_mutations(self, population, mutation_probability):

@@ -1,3 +1,4 @@
+# main.py
 from algorithm.generation import Generation
 from algorithm.network import Network
 from visualization.visualizer import visualize
@@ -7,8 +8,8 @@ def main():
     # Параметры алгоритма
     size = 20
     k = 1
-    start = None
-    end = None
+    start = 17  # Устанавливаем начальную точку
+    end = 19    # Устанавливаем конечную точку
     min_population = 10
     max_population = 100
     max_generations = 200
@@ -49,35 +50,16 @@ def main():
             "new": (new_path, new_fitness)
         })
 
-    # Сохраняем оригинальные методы
+    # Сохраняем оригинальный метод evolve
     original_evolve = generation.evolve
-    original_crossover = generation.perform_crossover
-
-    # Модифицированный кроссовер
-    def modified_crossover(pairs):
-        result = original_crossover(pairs)
-        for parent1, parent2 in pairs:
-            child1, child2, cross_line = parent1.crossover(parent2, random_or_not=True)
-            capture_crossover(parent1, parent2, child1, child2, cross_line)
-        return result
 
     # Модифицированная эволюция
     def modified_evolve(gen_num, mut_prob):
-        # Очищаем данные для нового поколения
         crossover_data.clear()
         mutation_data.clear()
-        # Устанавливаем модифицированный кроссовер
-        generation.perform_crossover = modified_crossover
-        # Выполняем оригинальную эволюцию
-        original_evolve(gen_num, mut_prob)
-        # Применяем мутации и собираем данные
-        for chromosome in generation.population:
-            old_path = chromosome.path.copy()
-            old_fitness = chromosome.fitness
-            chromosome.mutation(mut_prob)
-            if chromosome.path != old_path:
-                capture_mutation(old_path, old_fitness, chromosome.path, chromosome.fitness)
-        # Сохраняем статистику поколения
+        # Передаём callback'и в оригинальный evolve
+        original_evolve(gen_num, mut_prob, crossover_callback=capture_crossover, mutation_callback=capture_mutation)
+        # Сохраняем статистику
         stats = generation.get_population_stats()
         history.append({
             "gen": gen_num,
@@ -87,7 +69,7 @@ def main():
             "mutation": mutation_data.copy()
         })
 
-    # Переопределяем evolve один раз до цикла
+    # Переопределяем evolve один раз
     generation.evolve = modified_evolve
 
     # Основной цикл генетического алгоритма
@@ -95,7 +77,7 @@ def main():
         generation.evolve(gen + 1, mutation_probability)
         print(f"\nСтатистика по поколению {gen + 1}:")
         print(f"  Лучший фитнес: {history[gen]['stats']['best_fitness']}")
-        print(f"('+Худший фитнес: {history[gen]['stats']['worst_fitness']}")
+        print(f"  Худший фитнес: {history[gen]['stats']['worst_fitness']}")
         print(f"  Средний фитнес: {history[gen]['stats']['average_fitness']}")
 
     # Лучшее решение
